@@ -6,8 +6,8 @@
 #include "../include/sso_string.h"
 
 /// @brief Creates an SsoString object from a regular C String
-/// @param c_str 
-/// @return 
+/// @param c_str
+/// @return
 SsoString SsoString_from_cstr(const char* c_str) {
 	uint64_t length = strlen(c_str);
 	SsoString str;
@@ -35,32 +35,32 @@ SsoString SsoString_from_cstr(const char* c_str) {
 }
 
 /// @brief Returns a C String (a char pointer to a null terminated string) to the data held within the object itself
-/// @param str 
-/// @return 
+/// @param str
+/// @return
 char* SsoString_as_cstr(const SsoString* str) {
 	uint64_t tag = str->__field_3 & __SSO_STRING_64th_BIT_MAX;
 	if (tag) {
 		__HeapSsoStr* str_ptr = (__HeapSsoStr*) str;
 		return (char*) str_ptr->ptr;
-	} 
+	}
 	__StackSsoStr* str_ptr = (__StackSsoStr*) str;
 	return (char*) &str_ptr->chars[0];
 }
 
 /// @brief Exact same semantics as `strcmp`
-/// @param s1 
-/// @param s2 
-/// @return 
+/// @param s1
+/// @param s2
+/// @return
 int32_t SsoString_cmp(const SsoString* s1, const SsoString* s2) {
 	char* c_s1 = SsoString_as_cstr(s1);
 	char* c_s2 = SsoString_as_cstr(s2);
 	return strcmp(c_s1, c_s2);
 }
 
-/// @brief 
-/// @param s1 
-/// @param s2 
-/// @return Returns true if the two strings are equal 
+/// @brief
+/// @param s1
+/// @param s2
+/// @return Returns true if the two strings are equal
 bool SsoString_equals(const SsoString* s1, const SsoString* s2) {
 	char* c_s1 = SsoString_as_cstr(s1);
 	char* c_s2 = SsoString_as_cstr(s2);
@@ -68,7 +68,7 @@ bool SsoString_equals(const SsoString* s1, const SsoString* s2) {
 }
 
 /// @brief Frees the heap memory used by the string (if any)
-/// @param str 
+/// @param str
 /// @return Returns `true` if the value was heap allocated and `false` if stack allocated
 bool SsoString_free(SsoString* str) {
 	uint64_t tag = str->__field_3 & __SSO_STRING_64th_BIT_MAX;
@@ -82,18 +82,19 @@ bool SsoString_free(SsoString* str) {
 }
 
 /// @brief
-/// @param str 
+/// @param str
 /// @return Returns `true` if the value was heap allocated and `false` if stack allocated
-__always_inline bool SsoString_is_heap_allocated(const SsoString* str) {
+bool SsoString_is_heap_allocated(const SsoString* str) {
 	uint64_t tag = str->__field_3 & __SSO_STRING_64th_BIT_MAX;
 	if (tag) {
 		return true;
 	}
+
 	return false;
 }
 
-/// @brief 
-/// @param str 
+/// @brief
+/// @param str
 /// @return Returns the length of the string
 uint64_t SsoString_len(const SsoString* str) {
 	uint64_t tag = str->__field_3 & __SSO_STRING_64th_BIT_MAX;
@@ -106,8 +107,8 @@ uint64_t SsoString_len(const SsoString* str) {
 }
 
 /// @brief Performs a deep clone of the string (if heap allocated, the characters will be reallocated and copied)
-/// @param str 
-/// @return 
+/// @param str
+/// @return
 SsoString SsoString_clone(const SsoString* str) {
 	uint64_t tag = str->__field_3 & __SSO_STRING_64th_BIT_MAX;
 	if (tag) {
@@ -124,8 +125,8 @@ SsoString SsoString_clone(const SsoString* str) {
 }
 
 /// @brief Adds on to the end of the string. May raise an allocation faulure
-/// @param str 
-/// @param c_str 
+/// @param str
+/// @param c_str
 void SsoString_push_cstr(SsoString* str, char* c_str) {
     uint64_t curr_len = SsoString_len(str);
     uint64_t append_len = strlen(c_str);
@@ -171,9 +172,9 @@ void SsoString_push_cstr(SsoString* str, char* c_str) {
 }
 
 /// @brief The index returned will be index of the first character of c_str
-/// @param str 
-/// @param c_str 
-/// @return Returns the index of the 1st occurance of c_str in str. Returns -1 if not found 
+/// @param str
+/// @param c_str
+/// @return Returns the index of the 1st occurance of c_str in str. Returns -1 if not found
 int64_t SsoString_find(const SsoString* str, const char* c_str)  {
     const char* haystack = SsoString_as_cstr(str);
     const char* found = strstr(haystack, c_str);
@@ -184,8 +185,8 @@ int64_t SsoString_find(const SsoString* str, const char* c_str)  {
 }
 
 /// @brief This will start searching from the back. The index returned will be index of the first character of c_str.
-/// @param str 
-/// @param c_str 
+/// @param str
+/// @param c_str
 /// @return Returns the index of the 1st occurance of c_str in str. Returns -1 if not found.
 int64_t SsoString_rfind(const SsoString* str, const char* c_str) {
     const char* haystack = SsoString_as_cstr(str);
