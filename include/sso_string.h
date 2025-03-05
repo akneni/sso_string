@@ -40,5 +40,7 @@ SsoString SsoString_clone(const SsoString* str);
 void SsoString_push_cstr(SsoString* str, char* c_str);
 int64_t SsoString_find(const SsoString* str, const char* c_str);
 int64_t SsoString_rfind(const SsoString* str, const char* c_str);
+void SsoString_trim(SsoString* str);
+int32_t SsoString_split(const SsoString* str, SsoString* output_buffer, uint64_t buffer_len);
 
 #endif // SSO_STRING_H

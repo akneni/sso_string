@@ -206,3 +206,153 @@ int64_t SsoString_rfind(const SsoString* str, const char* c_str) {
     }
     return -1;
 }
+
+/// @brief Removes all white space characters from the start and end of the string. 
+/// @param str 
+void SsoString_trim(SsoString* str) {
+    // Get C string representation and length
+    char* c_str = SsoString_as_cstr(str);
+    uint64_t len = SsoString_len(str);
+    
+    // If empty string, nothing to do
+    if (len == 0) return;
+    
+    // Find first non-whitespace character
+    uint64_t start = 0;
+    while (start < len && isspace((unsigned char)c_str[start])) {
+        start++;
+    }
+    
+    // If string is all whitespace, make it empty
+    if (start == len) {
+        if (SsoString_is_heap_allocated(str)) {
+            __HeapSsoStr* heap_str = (__HeapSsoStr*)str;
+            heap_str->ptr[0] = '\0';
+            heap_str->length = 0 | __SSO_STRING_64th_BIT_MAX;
+        } else {
+            __StackSsoStr* stack_str = (__StackSsoStr*)str;
+            stack_str->chars[0] = '\0';
+        }
+        return;
+    }
+    
+    // Find last non-whitespace character
+    int64_t end = len - 1;
+    while (end >= 0 && isspace((unsigned char)c_str[end])) {
+        end--;
+    }
+    
+    // Calculate new length
+    uint64_t new_len = end - start + 1;
+    
+    // If no trimming needed, return
+    if (start == 0 && (uint64_t)end == len - 1) {
+        return;
+    }
+    
+    // Update the string based on storage type
+    if (SsoString_is_heap_allocated(str)) {
+        __HeapSsoStr* heap_str = (__HeapSsoStr*)str;
+        
+        // Move characters if needed
+        if (start > 0) {
+            memmove(heap_str->ptr, heap_str->ptr + start, new_len);
+        }
+        
+        // Add null terminator
+        heap_str->ptr[new_len] = '\0';
+        
+        // Update length while preserving heap flag
+        heap_str->length = new_len | __SSO_STRING_64th_BIT_MAX;
+    } else {
+        __StackSsoStr* stack_str = (__StackSsoStr*)str;
+        
+        // Move characters if needed
+        if (start > 0) {
+            memmove(stack_str->chars, stack_str->chars + start, new_len);
+        }
+        
+        // Add null terminator
+        stack_str->chars[new_len] = '\0';
+    }
+}
+
+/// @brief 
+/// @param str The String we want to split
+/// @param output_buffer The buffer we want to place our strings into. 
+/// @param buffer_len The length of the output buffer. If 0, SsoString_split will reassign `output_buffer` using malloc() 
+/// @return 0 on success, 1 if the output buffer is not large enough
+int32_t SsoString_split(const SsoString* str, SsoString* output_buffer, uint64_t buffer_len) {
+    // Get C string representation
+    const char* c_str = SsoString_as_cstr(str);
+    uint64_t str_len = SsoString_len(str);
+    
+    // Count the number of words (splitting on whitespace)
+    uint64_t word_count = 0;
+    bool in_word = false;
+    
+    for (uint64_t i = 0; i < str_len; i++) {
+        if (isspace((unsigned char)c_str[i])) {
+            if (in_word) {
+                in_word = false;
+            }
+        } else {
+            if (!in_word) {
+                word_count++;
+                in_word = true;
+            }
+        }
+    }
+    
+    // If buffer_len is 0, just return the count of words
+    // This allows the caller to determine the needed buffer size first
+    if (buffer_len == 0) {
+        return word_count;
+    }
+    
+    // Check if buffer is large enough
+    if (buffer_len < word_count) {
+        return 1; // Buffer too small
+    }
+    
+    // Split the string and fill the buffer
+    uint64_t output_index = 0;
+    uint64_t word_start = 0;
+    bool in_word_splitting = false;
+    
+    for (uint64_t i = 0; i <= str_len; i++) {
+        if (i == str_len || isspace((unsigned char)c_str[i])) {
+            if (in_word_splitting) {
+                // Extract the word
+                uint64_t word_len = i - word_start;
+                
+                // Create a temporary buffer for the word
+                char* temp = (char*)malloc(word_len + 1);
+                if (!temp) {
+                    perror("Failed to allocate memory in SsoString_split");
+                    exit(1);
+                }
+                
+                // Copy the word to the temporary buffer
+                memcpy(temp, &c_str[word_start], word_len);
+                temp[word_len] = '\0'; // Ensure null termination
+                
+                // Convert to SsoString and store in output buffer
+                output_buffer[output_index] = SsoString_from_cstr(temp);
+                output_index++;
+                
+                // Free the temporary buffer
+                free(temp);
+                
+                in_word_splitting = false;
+            }
+        } else {
+            if (!in_word_splitting) {
+                word_start = i;
+                in_word_splitting = true;
+            }
+        }
+    }
+    
+    return 0; // Success
+}
