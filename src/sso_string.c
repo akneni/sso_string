@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 #include "../include/sso_string.h"
 
 /// @brief Creates an SsoString object from a regular C String
@@ -278,81 +279,112 @@ void SsoString_trim(SsoString* str) {
 }
 
 /// @brief 
-/// @param str The String we want to split
+/// @param str The string we want to split
+/// @param delimiter the string we want to split by
 /// @param output_buffer The buffer we want to place our strings into. 
-/// @param buffer_len The length of the output buffer. If 0, SsoString_split will reassign `output_buffer` using malloc() 
+/// @param buffer_len The length of the output buffer. If 0, SsoString_split will reassign `output_buffer` using malloc(). This will be set to the resulting value of the split array.
 /// @return 0 on success, 1 if the output buffer is not large enough
-int32_t SsoString_split(const SsoString* str, SsoString* output_buffer, uint64_t buffer_len) {
-    // Get C string representation
+int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* output_buffer, uint64_t* buffer_len) {
+    // Get C string representation and lengths
     const char* c_str = SsoString_as_cstr(str);
     uint64_t str_len = SsoString_len(str);
+    uint64_t delim_len = strlen(delimiter);
     
-    // Count the number of words (splitting on whitespace)
-    uint64_t word_count = 0;
-    bool in_word = false;
-    
-    for (uint64_t i = 0; i < str_len; i++) {
-        if (isspace((unsigned char)c_str[i])) {
-            if (in_word) {
-                in_word = false;
-            }
-        } else {
-            if (!in_word) {
-                word_count++;
-                in_word = true;
-            }
+    // Handle empty delimiter case - treat it as a character-by-character split
+    if (delim_len == 0) {
+        // Each character becomes its own string
+        uint64_t count = str_len;
+        
+        // If buffer_len is 0 or too small, return the required count
+        if (*buffer_len == 0) {
+            *buffer_len = count;
+            return 0;
+        } else if (*buffer_len < count) {
+            *buffer_len = count;
+            return 1; // Buffer too small
         }
+        
+        // Split by individual characters
+        char temp[2] = {0}; // Character + null terminator
+        for (uint64_t i = 0; i < str_len; i++) {
+            temp[0] = c_str[i];
+            output_buffer[i] = SsoString_from_cstr(temp);
+        }
+        
+        *buffer_len = count;
+        return 0;
     }
     
-    // If buffer_len is 0, just return the count of words
-    // This allows the caller to determine the needed buffer size first
-    if (buffer_len == 0) {
-        return word_count;
+    // Count the number of delimiters in the string
+    uint64_t count = 1; // Start with 1 for the first segment
+    const char* pos = c_str;
+    const char* next_delim = strstr(pos, delimiter);
+    
+    while (next_delim != NULL) {
+        count++;
+        pos = next_delim + delim_len;
+        next_delim = strstr(pos, delimiter);
+    }
+    
+    // If input string is empty, result is an empty array
+    if (str_len == 0) {
+        count = 0;
+    }
+    
+    // If buffer_len is 0, return the count
+    if (*buffer_len == 0) {
+        *buffer_len = count;
+        return 0;
     }
     
     // Check if buffer is large enough
-    if (buffer_len < word_count) {
+    if (*buffer_len < count) {
+        *buffer_len = count;
         return 1; // Buffer too small
     }
     
-    // Split the string and fill the buffer
-    uint64_t output_index = 0;
-    uint64_t word_start = 0;
-    bool in_word_splitting = false;
-    
-    for (uint64_t i = 0; i <= str_len; i++) {
-        if (i == str_len || isspace((unsigned char)c_str[i])) {
-            if (in_word_splitting) {
-                // Extract the word
-                uint64_t word_len = i - word_start;
-                
-                // Create a temporary buffer for the word
-                char* temp = (char*)malloc(word_len + 1);
-                if (!temp) {
-                    perror("Failed to allocate memory in SsoString_split");
-                    exit(1);
-                }
-                
-                // Copy the word to the temporary buffer
-                memcpy(temp, &c_str[word_start], word_len);
-                temp[word_len] = '\0'; // Ensure null termination
-                
-                // Convert to SsoString and store in output buffer
-                output_buffer[output_index] = SsoString_from_cstr(temp);
-                output_index++;
-                
-                // Free the temporary buffer
-                free(temp);
-                
-                in_word_splitting = false;
+    // Perform the actual splitting
+    if (count > 0) {
+        pos = c_str;
+        next_delim = strstr(pos, delimiter);
+        uint64_t index = 0;
+        
+        while (true) {
+            uint64_t segment_len;
+            if (next_delim == NULL) {
+                // Last segment
+                segment_len = c_str + str_len - pos;
+            } else {
+                segment_len = next_delim - pos;
             }
-        } else {
-            if (!in_word_splitting) {
-                word_start = i;
-                in_word_splitting = true;
+            
+            // Create a temporary buffer for the segment
+            char* temp = (char*)malloc(segment_len + 1);
+            if (!temp) {
+                perror("Failed to allocate memory in SsoString_split");
+                exit(1);
             }
+            
+            memcpy(temp, pos, segment_len);
+            temp[segment_len] = '\0';
+            
+            // Store the segment
+            output_buffer[index] = SsoString_from_cstr(temp);
+            free(temp);
+            
+            index++;
+            
+            // Move to next segment
+            if (next_delim == NULL) {
+                break;
+            }
+            
+            pos = next_delim + delim_len;
+            next_delim = strstr(pos, delimiter);
         }
     }
     
-    return 0; // Success
+    // Update buffer_len with actual count
+    *buffer_len = count;
+    return 0;
 }
