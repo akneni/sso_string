@@ -281,10 +281,10 @@ void SsoString_trim(SsoString* str) {
 /// @brief 
 /// @param str The string we want to split
 /// @param delimiter the string we want to split by
-/// @param output_buffer The buffer we want to place our strings into. 
-/// @param buffer_len The length of the output buffer. If 0, SsoString_split will reassign `output_buffer` using malloc(). This will be set to the resulting value of the split array.
+/// @param output_buffer Pointer to the buffer we want to place our strings into. If *buffer_len is 0, this function will allocate memory.
+/// @param buffer_len The length of the output buffer. If 0, SsoString_split will allocate memory for output_buffer.
 /// @return 0 on success, 1 if the output buffer is not large enough
-int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* output_buffer, uint64_t* buffer_len) {
+int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString** output_buffer, uint64_t* buffer_len) {
     // Get C string representation and lengths
     const char* c_str = SsoString_as_cstr(str);
     uint64_t str_len = SsoString_len(str);
@@ -295,10 +295,14 @@ int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* 
         // Each character becomes its own string
         uint64_t count = str_len;
         
-        // If buffer_len is 0 or too small, return the required count
+        // If buffer_len is 0, allocate memory
         if (*buffer_len == 0) {
+            *output_buffer = (SsoString*)malloc(count * sizeof(SsoString));
+            if (*output_buffer == NULL) {
+                perror("Failed to allocate memory in SsoString_split");
+                exit(1);
+            }
             *buffer_len = count;
-            return 0;
         } else if (*buffer_len < count) {
             *buffer_len = count;
             return 1; // Buffer too small
@@ -308,10 +312,9 @@ int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* 
         char temp[2] = {0}; // Character + null terminator
         for (uint64_t i = 0; i < str_len; i++) {
             temp[0] = c_str[i];
-            output_buffer[i] = SsoString_from_cstr(temp);
+            (*output_buffer)[i] = SsoString_from_cstr(temp);
         }
         
-        *buffer_len = count;
         return 0;
     }
     
@@ -331,14 +334,15 @@ int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* 
         count = 0;
     }
     
-    // If buffer_len is 0, return the count
+    // If buffer_len is 0, allocate memory for output_buffer
     if (*buffer_len == 0) {
+        *output_buffer = (SsoString*)malloc(count * sizeof(SsoString));
+        if (*output_buffer == NULL && count > 0) {
+            perror("Failed to allocate memory in SsoString_split");
+            exit(1);
+        }
         *buffer_len = count;
-        return 0;
-    }
-    
-    // Check if buffer is large enough
-    if (*buffer_len < count) {
+    } else if (*buffer_len < count) {
         *buffer_len = count;
         return 1; // Buffer too small
     }
@@ -369,7 +373,7 @@ int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* 
             temp[segment_len] = '\0';
             
             // Store the segment
-            output_buffer[index] = SsoString_from_cstr(temp);
+            (*output_buffer)[index] = SsoString_from_cstr(temp);
             free(temp);
             
             index++;
@@ -384,7 +388,5 @@ int32_t SsoString_split(const SsoString* str, const char* delimiter, SsoString* 
         }
     }
     
-    // Update buffer_len with actual count
-    *buffer_len = count;
     return 0;
 }

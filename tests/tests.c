@@ -85,15 +85,12 @@ void test_SsoString_split() {
        // Test 10.1: Basic splitting by space
        SsoString s_split1 = SsoString_from_cstr("This is a test");
        uint64_t buffer_len = 0;
+       SsoString* split_buffer1 = NULL;  // Initialize to NULL
        
-       // First call with buffer_len=0 to get the count
-       int32_t result = SsoString_split(&s_split1, " ", NULL, &buffer_len);
+       // Now SsoString_split will allocate memory itself
+       int32_t result = SsoString_split(&s_split1, " ", &split_buffer1, &buffer_len);
        printf("String: \"%s\" split by space has %lu parts\n", 
               SsoString_as_cstr(&s_split1), buffer_len);
-   
-       // Now allocate and split
-       SsoString* split_buffer1 = (SsoString*)malloc(buffer_len * sizeof(SsoString));
-       result = SsoString_split(&s_split1, " ", split_buffer1, &buffer_len);
        printf("Split result: %d (expected 0)\n", result);
    
        // Print each part
@@ -114,13 +111,11 @@ void test_SsoString_split() {
        // Test 10.2: Splitting by a multi-character delimiter
        SsoString s_split2 = SsoString_from_cstr("apple,banana,orange,grape");
        buffer_len = 0;
+       SsoString* split_buffer2 = NULL;  // Initialize to NULL
        
-       result = SsoString_split(&s_split2, ",", NULL, &buffer_len);
+       result = SsoString_split(&s_split2, ",", &split_buffer2, &buffer_len);
        printf("\nString: \"%s\" split by comma has %lu parts\n", 
               SsoString_as_cstr(&s_split2), buffer_len);
-   
-       SsoString* split_buffer2 = (SsoString*)malloc(buffer_len * sizeof(SsoString));
-       result = SsoString_split(&s_split2, ",", split_buffer2, &buffer_len);
        printf("Split result: %d (expected 0)\n", result);
    
        printf("Parts:\n");
@@ -140,13 +135,11 @@ void test_SsoString_split() {
        // Test 10.3: Splitting with delimiter at beginning and end
        SsoString s_split3 = SsoString_from_cstr("|first|second|third|");
        buffer_len = 0;
+       SsoString* split_buffer3 = NULL;  // Initialize to NULL
        
-       result = SsoString_split(&s_split3, "|", NULL, &buffer_len);
+       result = SsoString_split(&s_split3, "|", &split_buffer3, &buffer_len);
        printf("\nString: \"%s\" split by \"|\" has %lu parts\n", 
               SsoString_as_cstr(&s_split3), buffer_len);
-   
-       SsoString* split_buffer3 = (SsoString*)malloc(buffer_len * sizeof(SsoString));
-       result = SsoString_split(&s_split3, "|", split_buffer3, &buffer_len);
        
        printf("Parts:\n");
        for (uint64_t i = 0; i < buffer_len; i++) {
@@ -165,13 +158,11 @@ void test_SsoString_split() {
        // Test 10.4: Empty delimiter (splits by character)
        SsoString s_split4 = SsoString_from_cstr("abc");
        buffer_len = 0;
+       SsoString* split_buffer4 = NULL;  // Initialize to NULL
        
-       result = SsoString_split(&s_split4, "", NULL, &buffer_len);
+       result = SsoString_split(&s_split4, "", &split_buffer4, &buffer_len);
        printf("\nString: \"%s\" split by empty delimiter has %lu parts\n", 
               SsoString_as_cstr(&s_split4), buffer_len);
-   
-       SsoString* split_buffer4 = (SsoString*)malloc(buffer_len * sizeof(SsoString));
-       result = SsoString_split(&s_split4, "", split_buffer4, &buffer_len);
        
        printf("Parts:\n");
        for (uint64_t i = 0; i < buffer_len; i++) {
@@ -190,16 +181,23 @@ void test_SsoString_split() {
        // Test 10.5: Empty string
        SsoString s_split5 = SsoString_from_cstr("");
        buffer_len = 0;
+       SsoString* split_buffer5 = NULL;  // Initialize to NULL
        
-       result = SsoString_split(&s_split5, ",", NULL, &buffer_len);
+       result = SsoString_split(&s_split5, ",", &split_buffer5, &buffer_len);
        printf("\nEmpty string split by comma has %lu parts\n", buffer_len);
+       
+       // Free the buffer if it was allocated
+       if (split_buffer5 != NULL) {
+           free(split_buffer5);
+       }
    
        // Test 10.6: Insufficient buffer
        SsoString s_split6 = SsoString_from_cstr("one:two:three:four");
        buffer_len = 2; // Too small for 4 parts
        
+       // Pre-allocate a small buffer
        SsoString* split_buffer6 = (SsoString*)malloc(buffer_len * sizeof(SsoString));
-       result = SsoString_split(&s_split6, ":", split_buffer6, &buffer_len);
+       result = SsoString_split(&s_split6, ":", &split_buffer6, &buffer_len);
        printf("\nSplit with insufficient buffer result: %d (expected 1)\n", result);
        printf("Required buffer size: %lu\n", buffer_len);
        free(split_buffer6);
@@ -207,9 +205,19 @@ void test_SsoString_split() {
        // Test 10.7: Delimiter not found
        SsoString s_split7 = SsoString_from_cstr("No delimiter here");
        buffer_len = 0;
+       SsoString* split_buffer7 = NULL;  // Initialize to NULL
        
-       result = SsoString_split(&s_split7, "XYZ", NULL, &buffer_len);
+       result = SsoString_split(&s_split7, "XYZ", &split_buffer7, &buffer_len);
        printf("\nString without delimiter has %lu parts\n", buffer_len);
+       
+       // Free the buffer if it was allocated
+       if (split_buffer7 != NULL) {
+           // Free individual strings if they were allocated
+           for (uint64_t i = 0; i < buffer_len; i++) {
+               SsoString_free(&split_buffer7[i]);
+           }
+           free(split_buffer7);
+       }
    
        // Free all strings
        SsoString_free(&s_split1);
@@ -219,7 +227,7 @@ void test_SsoString_split() {
        SsoString_free(&s_split5);
        SsoString_free(&s_split6);
        SsoString_free(&s_split7);
-   }
+}
 
 int main() {
     // Test 1: Create a short (stack-allocated) string
